@@ -1,6 +1,6 @@
 # 验证说明
 
-本文说明如何验证本插件，以及结果如何判定。具体一次开发验证的原始记录见文末“已验证环境（仅开发环境快照）”。
+这里说明怎么验证本插件，什么结果算通过。某次开发验证的原始记录放在文末。
 
 ## 验证范围与边界
 
@@ -10,7 +10,7 @@
 
 ## 自动验证
 
-在项目根目录执行：
+在项目根目录执行下面这些命令。
 
 ```powershell
 npm run build
@@ -22,11 +22,11 @@ node scripts/verify-package.mjs
 node scripts/smoke-package.mjs
 ```
 
-判定标准：
+什么算通过。
 
-- build 从 `src` 生成 `lib` 并做 Node 语法检查。
+- build 从 `src` 生成 `lib`，顺便做 Node 语法检查。
 - check 校验包入口、bundle 配置、运行资源锁、中英文元数据、图标及文档链接。
-- test 覆盖 ToolRuntime/SystemPrompt/ApprovalService/Session 服务链、Typert Gateway/Client、环境管理、作用域专项、核心与租约、归档校验；应全部通过且无 skip。
+- test 覆盖 ToolRuntime/SystemPrompt/ApprovalService/Session 服务链、Typert Gateway/Client、环境管理、作用域专项、核心与租约、归档校验。全部通过，没有 skip 才算过。
 - verify-package 校验归档 version/engines/peers、全部 lib 字节、Client、locale、资源锁与许可原文一致。
 - smoke-package 从 tgz 实际导入、注册 13 个工具、拒绝 Flutter 与 never、清理完成，不访问设备。
 
@@ -41,8 +41,8 @@ node scripts/smoke-package.mjs
 ## 运行时验收
 
 - Config 查询存在 `include:ios-webview-app-control`，且 schema 可用。
-- Tool Inspect 显示 13 个工具；`ios_capabilities` 描述应说明“不是会话能力清单或连接检查”。
-- 真实调用 `ios_capabilities` 返回新作用域字段。旧进程或旧 Agent 可能继续返回旧模块结果，需要完整重启后复验。
+- Tool Inspect 显示 13 个工具，`ios_capabilities` 的描述要写清「不是会话能力清单或连接检查」。
+- 真实调用 `ios_capabilities` 返回新作用域字段。旧进程或旧 Agent 可能还在返回旧模块结果，要完整重启后再验一次。
 - `applied`、`enabled`、fiber `active` 都不能替代实际工具调用与描述核对。
 
 ## 未覆盖项
@@ -54,7 +54,7 @@ node scripts/smoke-package.mjs
 
 ## 已验证环境（仅开发环境快照）
 
-以下为一次开发验证快照，不是兼容承诺或运行前提。
+这是某次开发验证的快照，不是兼容承诺，也不是运行前提。
 
 - 2026-10-31，Windows x64；Node 22.18.0；DSH 0.2.1-rc.5；Cordis 4.0.5；Schemastery 3.18.5。
 - 0.2.1 归档 57 文件、163,988 字节，SHA256 `e62eae32011c1d394bbc35e94b805ceb39c55f162dbb080facb02bcf9d73d138`；204 项测试通过（0 failed，0 skipped）；build、check、pack、verify-package、smoke 均通过。

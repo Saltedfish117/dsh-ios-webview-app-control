@@ -1,11 +1,11 @@
 # 安装与升级指南
 
-本文说明如何通过官方插件管理通道安装或升级本插件，以及如何判定是否真正生效。不同部署的 profile 名称、DSH 版本、路径与端口不同；示例中的占位符请按实际环境替换。
+这里说明怎么通过官方插件管理通道安装或升级本插件，以及怎么确认它真的生效。不同部署的 profile、DSH 版本、路径和端口不一样，示例里的占位符按实际环境替换。
 
 ## 前置确认
 
 1. 确认目标 DSH 版本在 [package.json](../package.json) 的 `engines.dsh` 与 `peerDependencies` 范围内。不要用版本豁免绕过兼容检查；范围外版本未经验证。
-2. 在项目根目录构建并校验待安装归档：
+2. 先在项目根目录构建并校验待安装归档。
 
 ```powershell
 npm ci --ignore-scripts
@@ -48,21 +48,21 @@ pwsh -NoProfile -File scripts/manage-desktop.ps1 -Action remove
 - 工具发现包含 13 个工具，其中包括 `ios_environment`。
 - 0.2.1 起，`ios_capabilities` 返回 `scope=plugin-only`、`inventory=not-session-inventory`，并说明这是本插件自述、不是会话工具清单。
 - 安装目录 manifest 版本与待安装归档一致；不能只看 `enabled` 或 fiber 为 active。
-- 未看到上述结果时，保留原始返回用于诊断；不要删除环境、扩大插件范围或改审批来“让验证通过”。
+- 没看到这些结果，就把原始返回留下来查原因。不要为了通过验证去删环境、扩大插件范围或者改审批。
 
 ## 失败与恢复
 
 - 版本不兼容：按错误码处理，不在不满足范围时强行豁免。
 - 安装失败或取消：按管理器的恢复结果处理，不手工修改受保护 profile。
-- 环境未就绪：`ios_environment status` 查看本插件状态；它与设备连接、其它工具和授权互不相干。
+- 环境没就绪：用 `ios_environment status` 看本插件状态。它和设备连接、其它工具、授权是三件事。
 - 旧版本模块可能继续服务到进程重启；需要新说明生效时，以完整重启后的真实工具结果为准。
 
 ## 已验证环境（仅开发环境快照）
 
-以下为某次开发验证快照，不是安装要求、兼容承诺或运行前提。
+这是某次开发验证的快照，既不是安装要求，也不是兼容承诺或运行前提。
 
 - 2026-10-31，Windows x64；DSH 0.2.1-rc.5；Node 22.18.0；Cordis 4.0.5；Schemastery 3.18.5。
 - 通过官方管理器移除旧 0.2.0、安装固定 0.2.1 tgz，返回 `application: applied`、`version: 0.2.1`、`warnings: []`；pnpm 另有非阻断 peer 提示。
 - 固定包：57 文件、163,988 字节；SHA256 `e62eae32011c1d394bbc35e94b805ceb39c55f162dbb080facb02bcf9d73d138`；204 项测试与 tgz 导入 smoke 通过。
-- 重启前真实工具与描述仍为旧内容；完整重启后 `ios_capabilities` 返回 `scope=plugin-only`、`inventory=not-session-inventory`，Tool Inspect 显示新作用域描述。因此不能把 `applied` 直接当作“当前 Agent 已收到新说明”。
+- 重启前真实工具与描述还是旧的。完整重启后，`ios_capabilities` 才返回 `scope=plugin-only`、`inventory=not-session-inventory`，Tool Inspect 也换成新描述。所以 `applied` 不能直接当成「当前 Agent 已收到新说明」。
 - 未调用真实设备操作，未修改审批策略；私有 Python 环境准备在该快照中未完成（下载阶段超时），不作为已验收项。

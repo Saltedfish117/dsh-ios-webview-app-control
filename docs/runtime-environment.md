@@ -8,9 +8,9 @@
 2. 只接受 64-bit CPython，且该 Python 的 ABI 在 [runtime-lock.json](../resources/runtime-lock.json) 中有完整、逐 wheel SHA256 锁定的依赖闭包。当前锁支持 CPython 3.9–3.13；3.14 因 `pylzss` 没有满足条件的 Windows wheel 不接受。
 3. 宿主 Python 只用作 base，不向它安装任何包。`pymobiledevice3` 和所有传递依赖安装到用户目录 `.dsh-ios-webview-app-control/runtime/generations/...` 的私有 venv，使用 `--no-index --require-hashes --only-binary :all: --require-virtualenv --no-user`。
 4. 没有合适宿主时，下载锁定的 PBS CPython 3.13.18 Windows x64，先验证大小和 SHA256，再安全解包到插件自己的 base 目录。
-5. `venv` 从最终 generation 路径创建，不移动；ready 指针原子发布。失败或取消不替换上一个 ready 环境。准备锁采用保守 fail-closed：发现已有锁时不会自动抢占，即使旧 PID 已结束也需后续明确清理。
+5. `venv` 直接在最终 generation 路径创建，不移动。ready 指针原子发布。失败或取消不会替换上一个 ready 环境。准备锁采用保守的 fail-closed 策略，发现已有锁就不自动抢占，哪怕旧 PID 已经结束，也要后续明确清理。
 
-默认配置：
+默认配置如下。
 
 ```yaml
 runtime:
@@ -33,7 +33,7 @@ runtime:
 
 ## 失败与恢复
 
-网络、证书、HTTP、超时、磁盘、权限、锁、哈希、归档路径、缺失 wheel、Python/DLL、自检错误都会 fail closed；不切换未锁定版本、不关闭 TLS、不源码编译、不静默安装系统 VC Runtime。准备失败保留上一 ready pointer，修复原因后可重试。`requirePython()` 只返回已验证的私有 venv 解释器，不会在 `ios_devices` 调用里隐式安装。
+网络、证书、HTTP、超时、磁盘、权限、锁、哈希、归档路径、缺失 wheel、Python/DLL 和自检错误都会 fail closed。不切换未锁定版本，不关 TLS，不源码编译，也不静默安装系统 VC Runtime。准备失败会保留上一个 ready pointer，修好原因后可以重试。`requirePython()` 只返回已经验证过的私有 venv 解释器，不会在 `ios_devices` 调用里隐式安装。
 
 ## 分发与许可证
 

@@ -4,7 +4,7 @@
 
 本合同对应插件 **0.2.1**。插件声明的兼容范围以 [package.json](../package.json) 的 `engines.dsh` 与 `peerDependencies` 为准；范围内版本需按本文合同使用，范围外不作兼容承诺。
 
-历史兼容说明：0.1.0 曾精确要求 rc.3 的 tools/system-prompt/user-approval/llm，在 rc.5 运行时被 `incompatible-version` 拒绝，不会创建 Loader 行。0.2.x 改用 `^0.2.1-rc.5` 的 peer 范围，没有通过版本豁免规避检查。
+0.1.0 曾精确要求 rc.3 的 tools/system-prompt/user-approval/llm，在 rc.5 运行时被 `incompatible-version` 拒绝，不会创建 Loader 行。0.2.x 改用 `^0.2.1-rc.5` 的 peer 范围，没有拿版本豁免绕过检查。
 
 | 项目 | 声明范围 | 已验证版本（快照） |
 | --- | --- | --- |
@@ -18,7 +18,7 @@
 
 ## Host 适配合同
 
-[插件入口](../src/plugin.mjs) 注册 Host 工具，并提供环境管理 Client 界面。使用具名 `name`、`inject`、`Config`、`apply` 导出，依赖 `tools`、`approval`、`systemPrompt`。这些入口已按 SDK 说明与运行时 Inspect 核对；验证快照见文末。
+[插件入口](../src/plugin.mjs) 注册 Host 工具，并提供环境管理 Client 界面。使用具名 `name`、`inject`、`Config`、`apply` 导出，依赖 `tools`、`approval`、`systemPrompt`。这些入口已经按 SDK 说明和运行时 Inspect 核对过，快照见文末。
 
 1. `ctx.tools.register(defineTool({...}))` 注册 13 个工具，系统提示词自动获得可见工具 schema。`defineTool.parameters` 是每个参数带 `required: true` 的属性映射，不是根 JSON Schema。已验证版本 SDK 的隐式根对象仍开放，适配层自行拒绝额外参数，防止 caller 注入 owner、signal、后端、解释器或证据路径。
 2. `execute(args, exec)` 返回规范 JSON 值，`output.render` 产生文本内容。作者 DSL 的 `output.schema: {type:'json'}` **合法**，会编译为无约束 JSON schema `{}`，不能误改为未知 API。截图返回本地文件及元数据，而非原生截图或自动图片内容块。
@@ -43,9 +43,9 @@
 | timeoutMs | 15000 | 核心 I/O 超时，整数 1..120000 |
 | maxLeaseSeconds | 120 | 租约上限，整数 5..600 |
 
-[环境管理器](../src/runtime/environment-manager.mjs) 优先探测 `pythonPath`、`DSH_IOS_PYTHON`、`DSH_PRIMARY_RUNTIME`，再检查 launcher、标准注册记录和真实 PATH Python；跳过 Store 别名。只在插件私有目录创建 venv 并安装锁定依赖，无合适 base 时按需准备私有 Python。设备调用只返回已就绪解释器或 `environment_not_ready`，不会隐式安装；该环境状态不诊断其它工具。详见 [私有环境说明](./runtime-environment.md)。
+[环境管理器](../src/runtime/environment-manager.mjs) 先看 `pythonPath`、`DSH_IOS_PYTHON`、`DSH_PRIMARY_RUNTIME`，再查 launcher、标准注册记录和真实 PATH Python，跳过 Store 别名。只在插件私有目录建 venv、装锁定依赖。没有合适的 base 时，按需准备私有 Python。设备调用只会拿到已经就绪的解释器，或者报 `environment_not_ready`，不会隐式安装。这个环境状态也不诊断其它工具。详见 [私有环境说明](./runtime-environment.md)。
 
-宿主如提供 `load_workspace_dependencies`，可取得受支持的 Python 路径后交由操作者配置；工具不是可在插件中猜名调用的 Service。仅 device discovery 使用 Python；附着已有 bridge 不依赖 Python。
+宿主如果提供 `load_workspace_dependencies`，可以先拿到受支持的 Python 路径，再交给操作者配置。它不是插件里能猜名字调用的 Service。只有设备发现用 Python，附着已有 bridge 不需要。
 
 ## 作用域与授权边界
 
@@ -53,7 +53,7 @@
 
 `ios_capabilities` 及 connect 内嵌的能力带 `source=dsh-ios-webview-app-control`、`scope=plugin-only`、`inventory=not-session-inventory`。`android:false`、`nativeTap:false` 等保留，含义仅为本插件未实现，不报告其它工具、USB 连接或会话授权状态。其它平台任务应独立检查当前会话实际暴露的工具、skill、权限；本声明既不禁用其它工具，也不授予其权限。未核查前不能推断整个会话不支持 Android。
 
-独立选择适用工具与规避授权拒绝不同：同一操作若被实际审批/策略阻止，不可改走 shell、CLI、核心导入或其它工具绕过决定。
+独立选一个适用工具，和规避授权拒绝是两件事。同一操作如果已经被审批或策略挡住，不能改走 shell、CLI、核心导入或别的工具绕过去。
 
 调用顺序为 capabilities → 确认设备与应用类型 → connect → targets → 人确认 exact target/App 身份 → bind_target → acquire → 分别批准 read/screenshot/DOM/eval → release → disconnect。capabilities 是静态无设备 I/O；其它 11 项各自需要本次授权。
 
