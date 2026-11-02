@@ -1,0 +1,74 @@
+{
+  "name": "dsh-ios-webview-app-control",
+  "version": "0.2.1",
+  "description": "Business-free DSH tools for inspectable iOS WebView/hybrid apps only.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18.0",
+    "dsh": ">=0.2.1-rc.5 <0.3.0"
+  },
+  "main": "./lib/plugin.mjs",
+  "exports": {
+    ".": "./lib/plugin.mjs",
+    "./core": "./lib/core/service.mjs",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-ios-webview-app-control": "./lib/cli.mjs"
+  },
+  "files": [
+    "lib/",
+    "resources/",
+    "THIRD_PARTY_NOTICES.md",
+    "cordis.patch.yml",
+    "README.md",
+    "docs/",
+    "requirements.txt",
+    "LICENSE",
+    "CHANGELOG.md",
+    "locale/*.json",
+    "icon.svg",
+    "scripts/manage-desktop.ps1",
+    "scripts/verify-package.mjs",
+    "scripts/package-validation.mjs"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "external": ["zod"],
+      "inject": ["@deepseek-ai/dsh-client-ui-plugin-manager", "@deepseek-ai/dsh-client-ui-settings-plugins"]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "prepack": "npm run build && npm run check && npm test"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.18.5",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-api-gateway": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-api-remote-access": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-typert-registry": "0.2.1-rc.5"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-tools": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-system-prompt": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-user-approval": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-llm": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-typert-protocol": "^0.2.1-rc.5"
+  }
+}

@@ -1,0 +1,17 @@
+node_modules/
+lib/
+artifacts/
+.runtime/
+evidence/
+.verify/
+.dsh-ios-webview-app-control/
+*.tgz
+*.sha256
+*.log
+*.tmp
+.pkg-*.json
+coverage/
+.env
+.env.*
+.DS_Store
+Thumbs.db

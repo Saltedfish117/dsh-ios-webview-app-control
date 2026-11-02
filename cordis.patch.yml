@@ -1,0 +1,20 @@
+# Optional profile bundle layer; this does not install itself or modify a live GUI.
+# The bare package specifier resolves via package main/exports to ./lib/plugin.mjs.
+# Compose after the profile's tools, approval and systemPrompt providers.
+- insert:
+    - id: ios-webview-app-control
+      name: dsh-ios-webview-app-control
+      config:
+        # Existing bridge only. Empty requires an explicit endpoint at connect.
+        endpoint: ''
+        # Preferred base interpreter only; packages always live in a private venv.
+        pythonPath: ''
+        runtime:
+          autoPrepare: true
+          directory: ''
+          offline: false
+          timeoutMs: 900000
+        stateDir: ''
+        allowEval: false
+        timeoutMs: 15000
+        maxLeaseSeconds: 120

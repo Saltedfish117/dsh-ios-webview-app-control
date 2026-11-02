@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "iOS WebView 应用控制",
+    "description": "本插件通过已有本机桥接控制已确认的 iOS WebView／混合应用，逐次审批并使用会话专属设备租约。其能力限制不代表 DSH 会话中其它工具的能力。"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "iOS WebView App Control",
+    "description": "This plugin controls confirmed iOS WebView/hybrid targets through an existing local bridge, with per-operation approval and session-owned leases. Its limits do not describe other DSH tools."
+  }
+}
