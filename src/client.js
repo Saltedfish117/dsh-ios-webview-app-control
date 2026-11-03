@@ -108,6 +108,7 @@ window.__ModuleLoader__.load({
         const [revision, setRevision] = React.useState(0);
         const live = React.useRef(null);
         const confirmedButton = React.useRef(null);
+        const dismissed = React.useRef(false);
         const panelId = React.useId();
         React.useEffect(() => {
           const control = new AbortController();
@@ -135,6 +136,14 @@ window.__ModuleLoader__.load({
           };
         }, [revision]);
         React.useEffect(() => { if (confirmCleanup) confirmedButton.current?.focus(); }, [confirmCleanup]);
+        // Activation guidance exists to get the environment ready, so it closes
+        // itself once preparation settles in a state that needs no action.
+        const settledReady = snapshot !== null && snapshot.phase === 'ready' && snapshot.busy !== true;
+        React.useEffect(() => {
+          if (!props.activation || !settledReady || dismissed.current) return;
+          dismissed.current = true;
+          if (typeof props.onDismiss === 'function') props.onDismiss();
+        }, [props.activation, settledReady, props.onDismiss]);
         async function run(action) {
           const control = live.current;
           if (!control || control.signal.aborted || (working && !(action === 'cancel' && working === 'prepare'))) return;
@@ -158,7 +167,10 @@ window.__ModuleLoader__.load({
           return h('div', { className: 'iosenv-row', key: label }, h('dt', null, label), h('dd', { className: mono ? 'iosenv-mono' : undefined }, value || t('missing')));
         }
         const busy = snapshot?.busy === true;
-        const progress = snapshot?.progress;
+        // Step and byte counts describe an in-flight preparation only; once it
+        // settles they must not read like a stalled download.
+        const progress = busy ? snapshot?.progress : null;
+        const step = busy ? snapshot?.step : null;
         const total = progress?.totalBytes;
         const progressText = progress ? t(total === undefined ? 'bytesUnknown' : 'bytes', { completed: progress.completedBytes, total }) : null;
         const phase = snapshot?.phase;
@@ -175,7 +187,7 @@ window.__ModuleLoader__.load({
           h('p', { className: 'iosenv-muted' }, t('intro')),
           h('div', { className: 'iosenv-state', role: 'status', 'aria-live': 'polite' },
             h('div', { className: 'iosenv-statehead' }, h('span', null, t('phase')), h('strong', { className: 'iosenv-phase' }, snapshot ? t(`phase.${phase}`) : t('loading'))),
-            snapshot?.step ? h('p', { className: 'iosenv-muted' }, `${t('step')}: ${snapshot.step}`) : null,
+            step ? h('p', { className: 'iosenv-muted' }, `${t('step')}: ${step}`) : null,
             progressText ? h('p', null, progressText) : null,
             progress ? h('progress', { className: 'iosenv-progress', 'aria-label': t('progress'), ...(total > 0 ? { max: total, value: Math.min(progress.completedBytes, total) } : {}) }) : null,
             phase === 'ready' ? h('p', { className: 'iosenv-muted' }, t('readyHint')) : null),

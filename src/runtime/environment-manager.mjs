@@ -141,7 +141,15 @@ export class EnvironmentManager {
   }
   status() {
     const state=clone(this.snapshot);
-    state.step=state.step||state.stage||state.phase;
+    // Step and byte counters describe an in-flight preparation only. Once it
+    // settles they read like a stalled download, so a public status drops them.
+    if(BUSY_PHASES.has(state.phase)){
+      state.step=state.step||state.stage||state.phase;
+      state.progress=state.bytes.total>0?{completedBytes:state.bytes.downloaded,totalBytes:state.bytes.total}:null;
+    }else{
+      state.step='';
+      state.progress=null;
+    }
     if(!state.python?.path||!state.python?.version||!['host','private'].includes(state.python?.source))state.python=null;
     if(typeof state.pymobiledevice3!=='string')delete state.pymobiledevice3;
     return state;

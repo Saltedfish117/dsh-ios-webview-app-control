@@ -105,7 +105,9 @@ test('runtime picks locked explicit host CPython, creates final generation and p
   assert.equal(ready.python.path, await f.manager.requirePython()); assert.ok(path.isAbsolute(ready.python.path));
   assert.equal(f.downloads.length, 2, 'no fallback archive is downloaded for a suitable host');
   assert.ok(states.some(snapshot => snapshot.phase === 'creating')); assert.ok(states.some(snapshot => snapshot.phase === 'installing')); assert.ok(states.some(snapshot => snapshot.phase === 'verifying'));
-  assert.equal(ready.progress.completedBytes, ready.progress.totalBytes);
+  assert.equal(ready.progress, null, 'a settled status must not keep reporting download progress');
+  assert.equal(ready.step, '', 'a settled status must not keep reporting a preparation step');
+  assert.ok(states.some(snapshot => snapshot.phase === 'downloading' && snapshot.progress?.totalBytes > 0), 'in-flight preparation still reports byte progress');
   const create = f.calls.find(call => call.args.includes('venv') && call.args.includes('--without-pip'));
   assert.ok(create); assert.ok(!create.args.includes('--system-site-packages')); assert.ok(create.args.at(-1).includes(path.sep + 'generations' + path.sep));
   for (const call of f.calls.filter(call => call.executable.endsWith('python.exe'))) {

@@ -235,6 +235,42 @@ test('cleanup requires an explicit confirm click; back/Escape do not call the Ho
   assert.deepEqual(f.manager.calls.map(([name]) => name), ['cleanup']);
 });
 
+test('activation guidance dismisses itself once the environment is ready', async t => {
+  const f = await fixture(t);
+  const entry = f.entries.get('plugins.bundle.activation');
+  let dismissed = 0;
+  const hostProps = { packageName: 'dsh-ios-webview-app-control', onDismiss: () => { dismissed += 1; }, onOpenDetails() {} };
+  const element = entry.component(hostProps);
+  assert.equal(element.props.activation, true);
+  const panel = element.type;
+  const props = element.props;
+  f.runtime.render(panel, props);
+  await settle();
+  f.runtime.render(panel, props);
+  assert.equal(dismissed, 0, 'an unprepared environment keeps the activation guidance open');
+  f.manager.publish({ phase: 'ready', busy: false, step: 'reused', progress: { completedBytes: 0, totalBytes: 0 } });
+  await settle();
+  const tree = f.runtime.render(panel, props);
+  assert.equal(dismissed, 1, 'a ready environment dismisses the activation guidance');
+  assert.match(textOf(tree), /本机环境已就绪/);
+  assert.doesNotMatch(textOf(tree), /字节/);
+  assert.doesNotMatch(textOf(tree), /步骤/);
+  assert.equal(flatten(tree).some(node => node?.type === 'progress'), false);
+});
+
+test('a settled panel keeps environment facts but no preparation step or progress', async t => {
+  const f = await fixture(t);
+  f.runtime.render(f.entries.get('settings.plugins.tab').component);
+  await settle();
+  f.manager.publish({ phase: 'ready', busy: false, step: 'reused', progress: { completedBytes: 7, totalBytes: 9 } });
+  await settle();
+  const tree = f.runtime.render();
+  assert.match(textOf(tree), /本机环境已就绪/);
+  assert.doesNotMatch(textOf(tree), /字节/);
+  assert.doesNotMatch(textOf(tree), /步骤/);
+  assert.equal(flatten(tree).some(node => node?.type === 'progress'), false);
+});
+
 test('failure and phase/error details render as React text; English copy and theme are native', async t => {
   const f = await fixture(t);
   f.runtime.render(f.entries.get('settings.plugins.tab').component);

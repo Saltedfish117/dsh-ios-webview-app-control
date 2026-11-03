@@ -1,6 +1,6 @@
 {
   "name": "dsh-ios-webview-app-control",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Business-free DSH tools for inspectable iOS WebView/hybrid apps only.",
   "type": "module",
   "license": "MIT",
