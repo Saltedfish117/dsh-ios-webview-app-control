@@ -79,8 +79,8 @@ test('CLI, connect capabilities and documentation retain plugin-local scope with
   t.after(()=>core.dispose());
   const connected=await core.execute('connect',{platform:'ios',appType:'hybrid',endpoint:'http://127.0.0.1:9333',udid:'test-only',verifiedExistingUdid:'test-only'},{owner:'test-only',signal:new AbortController().signal});
   assert.equal(connected.capabilities.scope,'plugin-only');assert.equal(connected.capabilities.android,false);
-  const readme=await readFile('README.md','utf8');const prompt=await readFile('docs/new-session-prompt.md','utf8');const ui=await readFile('src/client.js','utf8');
-  assert.match(readme,/不是 DSH 会话的完整工具清单/);assert.match(prompt,/独立检查当前会话实际暴露/);
+  const readme=await readFile('README.md','utf8');const guide=await readFile('docs/first-use.md','utf8');const ui=await readFile('src/client.js','utf8');
+  assert.match(readme,/不是 DSH 会话的完整工具清单/);assert.match(guide,/ios_preflight/);assert.match(guide,/逐次审批/);
   assert.match(ui,/This is not a DSH\/session tool inventory/);assert.match(ui,/这不是 DSH 会话的完整工具清单/);
   for(const file of ['locale/zh.json','locale/en.json']){
     const description=JSON.parse(await readFile(file,'utf8')).meta.description;

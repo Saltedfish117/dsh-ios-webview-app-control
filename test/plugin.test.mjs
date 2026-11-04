@@ -30,6 +30,7 @@ const EXPECTED = [
   ['ios_dom_action', 'dom', ['connectionId', 'targetId', 'leaseToken', 'action'], { ...TARGET, action: 'click', selector: 'button' }],
   ['ios_disconnect', 'disconnect', ['connectionId'], CONNECTION],
   ['ios_environment', 'environment', ['action'], {action:'status'}],
+  ['ios_preflight', 'preflight', ['workflow'], {workflow:'existing-bridge'}],
   ['ios_capabilities', 'capabilities', [], {}],
 ];
 
@@ -145,7 +146,7 @@ function harness(t, options = {}) {
 
 // Prototype mocks touch a shared imported class: all tests and subtests stay serial.
 describe('Cordis iOS adapter with the actual installed DSH SDK', { concurrency: false }, () => {
-  test('named Cordis exports, Schemastery defaults and all thirteen compiled definitions', async t => {
+  test('named Cordis exports, Schemastery defaults and all fourteen compiled definitions', async t => {
     const calls = captureCore(t);
     const h = harness(t);
     assert.equal(name, 'ios-webview-app-control');
@@ -155,9 +156,9 @@ describe('Cordis iOS adapter with the actual installed DSH SDK', { concurrency: 
       timeoutMs: 15000, maxLeaseSeconds: 120,
       runtime:{autoPrepare:true,directory:'',offline:false,timeoutMs:900000},
     });
-    assert.equal(h.registrations.length, 13);
+    assert.equal(h.registrations.length, 14);
     assert.deepEqual(h.registrations.map(tool => tool.name), EXPECTED.map(item => item[0]));
-    assert.equal(TOOL_SPECS.length, 13);
+    assert.equal(TOOL_SPECS.length, 14);
     for (const [toolName, action, required] of EXPECTED) {
       const tool = h.tools.get(toolName);
       const spec = TOOL_SPECS.find(item => item.name === toolName);
@@ -203,7 +204,7 @@ describe('Cordis iOS adapter with the actual installed DSH SDK', { concurrency: 
     assert.equal(h.effects.length, 1);
     assert.equal(h.effects[0].kind, 'composite');
     assert.equal(h.effects[0].label, 'ios-webview-app-control composite registrations');
-    assert.equal(h.effects[0].children.length, 17);
+    assert.equal(h.effects[0].children.length, 18);
     assert.equal(h.effects[0].children.slice(0,3).every(child=>child.kind==='core'),true);
     assert.equal(h.effects[0].children[3].kind, 'section');
     assert.equal(h.effects[0].children.slice(4).every(child => child.kind === 'tool'), true);
@@ -607,7 +608,7 @@ describe('Cordis iOS adapter with the actual installed DSH SDK', { concurrency: 
   test('all eleven sensitive tools require their own real adapter approval and forward exact owner/signal', async t => {
     const calls = captureCore(t);
     const h = harness(t, { config: { allowEval: true } });
-    for (const [toolName, action, , valid] of EXPECTED.filter(item => !['capabilities','environment'].includes(item[1]))) {
+    for (const [toolName, action, , valid] of EXPECTED.filter(item => !['capabilities','environment','preflight'].includes(item[1]))) {
       const exec = execution({ callId: 'call-for-' + toolName });
       const args = Object.freeze({ ...valid });
       const result = await h.run(toolName, args, exec);
@@ -803,7 +804,7 @@ describe('Cordis iOS adapter with the actual installed DSH SDK', { concurrency: 
     }
     assert.equal(completed, true);
     assert.equal(disposals, 1);
-    assert.equal(h.events.filter(event => event.startsWith('unregister:')).length, 13);
+    assert.equal(h.events.filter(event => event.startsWith('unregister:')).length, 14);
     assert.equal(h.events.filter(event => event.startsWith('remove-section:')).length, 1);
   });
 });

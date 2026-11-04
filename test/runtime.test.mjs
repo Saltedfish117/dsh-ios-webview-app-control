@@ -91,6 +91,28 @@ test('runtime constructor and status have no provisioning or device side effects
   assert.ok(JSON.stringify(f.manager.status()).length < 4000);
 });
 
+test('requirePython local verification propagates caller cancellation without setup or downloads', async t => {
+  const f = await fixture(t);
+  await f.manager.prepare();
+  const before = f.downloads.length;
+  const ac = new AbortController();
+  let began;
+  const started = new Promise(resolve => { began = resolve; });
+  f.state.hook = async (executable, args, invocation) => {
+    if (args.includes('-c')) {
+      began();
+      return new Promise((resolve, reject) => invocation.signal.addEventListener('abort', () => reject(new Error('local probe stopped')), { once: true }));
+    }
+  };
+  const pending = f.manager.requirePython({ signal: ac.signal });
+  await started;
+  ac.abort();
+  await assert.rejects(pending, { code: 'cancelled' });
+  assert.equal(f.downloads.length, before);
+  assert.equal(f.manager.reads.size, 0);
+  assert.equal(f.manager.work, null);
+});
+
 test('actual schemaVersion 1 lock validates every provided ABI without running Python or downloading', async () => {
   const actual = validateRuntimeLock(JSON.parse(await readFile(new URL('../resources/runtime-lock.json', import.meta.url), 'utf8')));
   assert.deepEqual(Object.keys(actual.environments), ['cp39', 'cp310', 'cp311', 'cp312', 'cp313']);

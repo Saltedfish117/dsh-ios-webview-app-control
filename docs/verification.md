@@ -28,7 +28,7 @@ node scripts/smoke-package.mjs
 - check 校验包入口、bundle 配置、运行资源锁、中英文元数据、图标及文档链接。
 - test 覆盖 ToolRuntime/SystemPrompt/ApprovalService/Session 服务链、Typert Gateway/Client、环境管理、作用域专项、核心与租约、归档校验。全部通过，没有 skip 才算过。
 - verify-package 校验归档 version/engines/peers、全部 lib 字节、Client、locale、资源锁与许可原文一致。
-- smoke-package 从 tgz 实际导入、注册 13 个工具、拒绝 Flutter 与 never、清理完成，不访问设备。
+- smoke-package 从待验证 tgz 实际导入、注册 14 个工具（含 `ios_preflight`）、拒绝 Flutter 与 never、清理完成，不访问设备。
 
 ## 作用域专项回归
 
@@ -41,7 +41,7 @@ node scripts/smoke-package.mjs
 ## 运行时验收
 
 - Config 查询存在 `include:ios-webview-app-control`，且 schema 可用。
-- Tool Inspect 显示 13 个工具，`ios_capabilities` 的描述要写清「不是会话能力清单或连接检查」。
+- 当前源码的 Tool Inspect 应显示 14 个工具（含 `ios_preflight`），`ios_capabilities` 的描述要写清「不是会话能力清单或连接检查」。
 - 真实调用 `ios_capabilities` 返回新作用域字段。旧进程或旧 Agent 可能还在返回旧模块结果，要完整重启后再验一次。
 - `applied`、`enabled`、fiber `active` 都不能替代实际工具调用与描述核对。
 

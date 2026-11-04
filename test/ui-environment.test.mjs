@@ -181,6 +181,80 @@ test('browser factory is lazy, owns only React/zod imports, mounts real strict C
   assert.equal(f.locale.registered, undefined);
 });
 
+test('first-use checklist is equivalent in both locales and never adds device or preparation calls', async t => {
+  const f = await fixture(t);
+  f.runtime.render(f.entries.get('settings.plugins.tab').component);
+  await settle();
+  const cases = {
+    zh: {
+      title: '首次连接检查清单',
+      intro: [/软件就绪不等于手机或 App 就绪/, /不会访问设备、自动配对或启动桥接/, /保留在插件设置页/],
+      items: [
+        [/ios_preflight/, /workflow=device-discovery/, /workflow=existing-bridge/, /只检查本机私有软件环境/, /不访问设备、不自动准备环境/, /不授予设备操作权限/, /已有桥接流程不依赖此 Python 环境就绪/],
+        [/支持数据传输的数据线/, /解锁 iPhone \/ iPad/, /由你在设备上处理“信任此电脑”/, /不要让 Agent 自动信任或配对/],
+        [/设置 → App → Safari → 高级 → 网页检查器/, /设置 → Safari → 高级 → 网页检查器/, /由你按设备实际界面开启/],
+        [/Developer Mode/, /仅在开发签名、调试或当前工具链明确要求时按需开启/, /不是所有 WebView \/ 已有桥接流程都需要/],
+        [/App 开发者确认/, /允许 WebView 检查/, /不能替代 App 侧支持/, /目标列表为空可能有多种原因/, /不能据此断定开关已关闭/],
+        [/已存在的本机 loopback bridge/, /由你选定精确 UDID/, /确认该桥属于这台设备/, /连接成功不证明桥归属/, /不要让 Agent 新建或启动桥接/],
+        [/ios_devices/, /ios_connect → ios_targets/, /人工确认精确 target id、受支持的 App 类型与 App 身份/, /ios_bind_target → ios_acquire/, /每次设备调用均需单独的一次性审批/, /未获审批不得执行或绕过/, /新目标或导航后需重新列出并显式绑定/],
+      ],
+    },
+    en: {
+      title: 'First connection checklist',
+      intro: [/Software readiness does not mean your phone or app is ready/, /does not access devices, pair automatically, or start a bridge/, /remains available in plugin settings/],
+      items: [
+        [/ios_preflight/, /workflow=device-discovery/, /workflow=existing-bridge/, /only checks the local private software environment/, /does not access devices, prepare the environment automatically, or authorize device operations/, /existing bridge does not require this Python environment to be ready/],
+        [/data-capable cable/, /unlock your iPhone \/ iPad/, /handle “Trust This Computer”/, /yourself on the device/, /Do not ask the Agent to trust or pair automatically/],
+        [/Settings → Apps → Safari → Advanced → Web Inspector/, /Settings → Safari → Advanced → Web Inspector/, /Enable it yourself/],
+        [/Developer Mode only when development signing, debugging, or your current toolchain explicitly requires it/, /Not every WebView \/ existing-bridge workflow needs it/],
+        [/app developer to confirm/, /allows WebView inspection/, /cannot replace app-side support/, /empty target list can have multiple causes/, /does not prove that the switch is off/],
+        [/existing local loopback bridge/, /Select the exact UDID yourself/, /confirm that the bridge belongs to that device/, /successful connection does not prove bridge ownership/, /Do not ask the Agent to create or start a bridge/],
+        [/ios_devices/, /ios_connect → ios_targets/, /confirm the exact target id, supported app type, and app identity yourself/, /ios_bind_target → ios_acquire/, /Every device call requires separate one-shot approval/, /without it, do not execute or bypass/, /Relist and explicitly rebind after a new target or navigation/],
+      ],
+    },
+  };
+  for (const [locale, expected] of Object.entries(cases)) {
+    f.locale.state.active = locale;
+    const tree = f.runtime.render();
+    const checklist = flatten(tree).find(node => node?.type === 'section' && node.props.className?.includes('iosenv-firstuse'));
+    assert.ok(checklist, locale + ' checklist');
+    const title = flatten(checklist).find(node => node?.type === 'h4');
+    assert.equal(textOf(title), expected.title);
+    assert.equal(checklist.props['aria-labelledby'], title.props.id);
+    const intro = flatten(checklist).find(node => node?.type === 'p');
+    for (const pattern of expected.intro) assert.match(textOf(intro), pattern);
+    const list = flatten(checklist).find(node => node?.type === 'ol');
+    assert.ok(list);
+    const items = flatten(list).filter(node => node?.type === 'li');
+    assert.equal(items.length, expected.items.length);
+    items.forEach((item, index) => {
+      for (const pattern of expected.items[index]) assert.match(textOf(item), pattern);
+    });
+    assert.equal(flatten(checklist).some(node => ['button', 'input', 'iframe'].includes(node?.type) || node?.props?.onClick), false, 'guidance is static text, not a device action');
+  }
+  assert.deepEqual(f.carriers, ['iosEnvironment/follow']);
+  assert.deepEqual(f.manager.calls, []);
+});
+
+test('settings retains the first-use checklist independently of environment readiness', async t => {
+  const f = await fixture(t);
+  let dismissed = 0;
+  f.runtime.render(f.entries.get('settings.plugins.tab').component, { onDismiss() { dismissed += 1; } });
+  await settle();
+  for (const phase of ['unprepared', 'ready', 'failed', 'cancelled']) {
+    f.manager.publish({ phase, busy: false });
+    await settle();
+    const tree = f.runtime.render();
+    assert.match(textOf(tree), /首次连接检查清单/);
+    assert.match(textOf(tree), /软件就绪不等于手机或 App 就绪/);
+    assert.match(textOf(tree), /ios_preflight/);
+    assert.equal(flatten(tree).filter(node => node?.type === 'li').length, 7);
+  }
+  assert.equal(dismissed, 0, 'settings never uses the activation auto-dismiss');
+  assert.deepEqual(f.carriers, ['iosEnvironment/follow']);
+  assert.deepEqual(f.manager.calls, []);
+});
+
 test('mounted UI follows status only; human prepare and cancel call the same real Host operations', async t => {
   const f = await fixture(t);
   const component = f.entries.get('settings.plugins.tab').component;
@@ -246,12 +320,22 @@ test('activation guidance dismisses itself once the environment is ready', async
   const props = element.props;
   f.runtime.render(panel, props);
   await settle();
-  f.runtime.render(panel, props);
+  const initialTree = f.runtime.render(panel, props);
   assert.equal(dismissed, 0, 'an unprepared environment keeps the activation guidance open');
+  assert.match(textOf(initialTree), /首次连接检查清单/);
+  f.manager.publish({ phase: 'ready', busy: true });
+  await settle();
+  f.runtime.render(panel, props);
+  assert.equal(dismissed, 0, 'a busy ready snapshot does not dismiss the activation guidance');
   f.manager.publish({ phase: 'ready', busy: false, step: 'reused', progress: { completedBytes: 0, totalBytes: 0 } });
   await settle();
   const tree = f.runtime.render(panel, props);
   assert.equal(dismissed, 1, 'a ready environment dismisses the activation guidance');
+  assert.match(textOf(tree), /首次连接检查清单/);
+  f.runtime.render(panel, { ...props, onDismiss: () => { dismissed += 1; } });
+  assert.equal(dismissed, 1, 'the activation guidance dismisses only once');
+  assert.deepEqual(f.carriers, ['iosEnvironment/follow']);
+  assert.deepEqual(f.manager.calls, []);
   assert.match(textOf(tree), /本机环境已就绪/);
   assert.doesNotMatch(textOf(tree), /字节/);
   assert.doesNotMatch(textOf(tree), /步骤/);

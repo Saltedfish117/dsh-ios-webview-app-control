@@ -34,10 +34,14 @@ try{
   let fiber;
   try{
     fiber=await ctx.plugin(plugin,{});
-    assert.equal(registered.size,13);
+    assert.equal(registered.size,14);
     const exec={agent:{session:{id:'package-smoke-session'}},signal:new AbortController().signal,callId:'package-smoke-call'};
     const staticResult=await registered.get('ios_capabilities').execute({},exec);
     assert.equal(staticResult.capabilities.nativeTap,false);
+    const preflight=await registered.get('ios_preflight').execute({workflow:'existing-bridge'},exec);
+    assert.equal(preflight.preflight.deviceAccessPerformed,false);
+    assert.equal(preflight.preflight.authorizationGranted,false);
+    assert.equal(preflight.preflight.checks.find(check=>check.id==='software_runtime').status,'not_applicable');
     await assert.rejects(registered.get('ios_connect').execute({
       platform:'ios',appType:'flutter',udid:'example',verifiedExistingUdid:'example',endpoint:'http://127.0.0.1:9333',
     },exec),{code:'unsupported_app_type'});
@@ -50,7 +54,7 @@ try{
   assert.equal(sections.size,0);
   console.log(JSON.stringify({
     ok:true,archive:verified.archive,version:verified.manifest.version,archiveValidated:true,
-    libFilesMatched:verified.summary.libFilesMatched,actualTarballImport:true,registeredTools:13,
+    libFilesMatched:verified.summary.libFilesMatched,actualTarballImport:true,registeredTools:14,
     nativeFlutterRefused:true,neverPolicyRefused:true,disposed:true,deviceAccess:false,
   },null,2));
 }finally{

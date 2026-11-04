@@ -479,20 +479,23 @@ export class EnvironmentManager {
     return this.work;
   }
   cancel() { this.controller?.abort(new EnvironmentError('cancelled', 'Runtime preparation was cancelled.')); }
-  async requirePython() {
+  async requirePython({ signal } = {}) {
     if (this.disposed) throw new EnvironmentNotReadyError('EnvironmentManager has been disposed.');
     this._supported();
     const controller = new AbortController();
+    const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    aborted(combined);
     const work = (async () => {
       const lock = await this._resources();
-      const pointer = await this._ready(lock, controller.signal);
+      const pointer = await this._ready(lock, combined);
+      aborted(combined);
       if (!pointer) throw new EnvironmentNotReadyError('Runtime is not ready; prepare it explicitly before device operations.');
       this.currentPython = pointer.interpreter;
       return pointer.interpreter;
     })();
     const record = { controller, work };
     this.reads.add(record);
-    try { return await work; } catch (error) { if (error instanceof EnvironmentNotReadyError) throw error; throw new EnvironmentNotReadyError(bounded(error.message)); } finally { this.reads.delete(record); }
+    try { return await work; } catch (error) { aborted(combined); if (error instanceof EnvironmentNotReadyError) throw error; throw new EnvironmentNotReadyError(bounded(error.message)); } finally { this.reads.delete(record); }
   }
   async cleanup({ signal } = {}) {
     if (this.disposed) throw new EnvironmentError('environment_disposed', 'EnvironmentManager has been disposed.');

@@ -39,9 +39,9 @@ async function host(t,{policy='ask',answerer,openTurn=true}={}){
 
 test('rc.5 real registry/prompt assemble, execute static capability, refuse unsupported app and dispose',async t=>{
   const h=await host(t,{policy:'never'});
-  assert.equal(h.ctx.tools.schemas(h.agent).length,13);
+  assert.equal(h.ctx.tools.schemas(h.agent).length,14);
   const assembly=await h.ctx.systemPrompt.assemble({scope:h.agent,agent:h.agent});
-  assert.equal(assembly.tools.length,13);
+  assert.equal(assembly.tools.length,14);
   assert.ok(assembly.sections.some(section=>section.name==='tool:ios-webview-app-control'));
   const capabilities=await h.call('ios_capabilities');
   assert.equal(capabilities.isError,false);

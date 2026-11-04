@@ -45,7 +45,7 @@ pwsh -NoProfile -File scripts/manage-desktop.ps1 -Action remove
 ## 判定安装是否生效
 
 - Config 查询出现 `include:ios-webview-app-control`，且 schema 状态正常。
-- 工具发现包含 13 个工具，其中包括 `ios_environment`。
+- 当前源码的工具发现应包含 14 个工具，其中包括 `ios_environment` 和 `ios_preflight`。
 - 0.2.1 起，`ios_capabilities` 返回 `scope=plugin-only`、`inventory=not-session-inventory`，并说明这是本插件自述、不是会话工具清单。
 - 安装目录 manifest 版本与待安装归档一致；不能只看 `enabled` 或 fiber 为 active。
 - 没看到这些结果，就把原始返回留下来查原因。不要为了通过验证去删环境、扩大插件范围或者改审批。

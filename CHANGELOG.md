@@ -1,5 +1,16 @@
 # 更新记录
 
+## 0.2.3 — 2026-11-04
+
+- 新增纯本地只读 `ios_preflight`，工具总数为 14。必填 `workflow=device-discovery` / `existing-bridge`；仅验证适用的私有软件条件并返回手机人工清单，不访问设备、不自动准备、不授予授权。已有 bridge 流程跳过 Python，`software_runtime=not_applicable`，不强制 `prepare`。
+- `ios_devices`、`ios_connect`、`ios_targets` 成功结果保留原字段并附结构化 `preflight.checks` / `nextActions`。检查区分 `passed`、`failed`、`unknown`、`not_checked`、`not_applicable`，不把空设备/目标诊断成开关关闭，也不把连通性当作 App 身份、bridge 与 UDID 归属或后续授权证明。
+- 对适用的环境、设备后端和 bridge 故障追加固定安全的中文“下一步”提示，保留原错误码与失败语义，不暴露任意 details；审批拒绝仍停止原操作，不能换道。
+- 通过插件系统提示词自动注入 First use 与复检指引，引导 Agent 先选 workflow 做本地预检，再解释未知条件并为每个设备操作重新请求审批；`requirePython()` 验证传递 caller 的取消信号，沿用取消语义，不将取消吞成普通检查失败。
+- 新增[首次使用指南](<docs/first-use.md>)，补充网页检查器新旧设置路径、按需 Developer Mode、App 允许检查、人工解锁/信任、已有 bridge 确认和每次设备调用分别审批的复检顺序；设置页保留长期可见的首次清单，不在挂载时访问设备。
+- 统一自定义取消原因的错误语义，隐藏设备/bridge 无效 JSON 的原始内容，并在连接建立前校验目标元数据，避免畸形响应遗留连接。
+- 精简 README 的重复说明、配置和故障排查内容，修正相对链接的预览兼容性；移除旧的新会话提示词模板。
+- 未进行本轮真机和界面视觉验收；旧版验证快照保留在验证文档中。
+
 ## 0.2.2 — 2026-11-03
 
 - 修复设置页环境面板在准备结束后仍挂着“步骤/字节数/进度条”的问题：只有准备进行中（busy）才输出并渲染过程信息，就绪、失败、取消后的公开状态不再保留 step/progress。

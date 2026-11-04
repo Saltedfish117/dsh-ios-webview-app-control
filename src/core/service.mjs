@@ -6,6 +6,7 @@ import { IosError,assertSupported,CAPABILITIES,endpointUrl,fetchJson,targets,exa
 import { LeaseStore } from './leases.mjs';
 import { pythonPath,runPython } from './python.mjs';
 import { domAction } from './dom.mjs';
+import { PREFLIGHT_WORKFLOWS, preflightReport } from './preflight.mjs';
 export class IosControl {
   constructor(config={},deps={}){
     this.config={timeoutMs:15000,maxLeaseSeconds:120,allowEval:false,...config};
@@ -25,15 +26,37 @@ export class IosControl {
     if(!exec.owner||typeof exec.owner!=='string')throw new IosError('owner_required','An owning DSH session is required.');
     const ac=new AbortController();this.controllers.add(ac);const signal=exec.signal?AbortSignal.any([exec.signal,ac.signal]):ac.signal;
     const work=this.dispatch(action,args,{...exec,signal});this.active.add(work);
-    try{const result=await work;assertLosslessJson(result);return result;}catch(error){throw normalizeError(error);}finally{this.active.delete(work);this.controllers.delete(ac);}
+    try{const result=await work;signal.throwIfAborted();assertLosslessJson(result);return result;}catch(error){const failure=normalizeError(error);if(signal.aborted)throw new IosError('cancelled','Operation cancelled.',failure.details);throw failure;}finally{this.active.delete(work);this.controllers.delete(ac);}
+  }
+  async targetList(endpoint,signal){
+    const list=await this.discoverTargets(endpoint,{signal,timeoutMs:this.config.timeoutMs});
+    // Validate before creating state or reading metadata. Malformed bridge entries
+    // must not leave an unreachable connection or echo external payload snippets.
+    if(!Array.isArray(list)||list.some(t=>!t||typeof t!=='object'||Array.isArray(t)||['id','title','type','url','webSocketDebuggerUrl'].some(key=>t[key]!==undefined&&t[key]!==null&&typeof t[key]!=='string')))throw new IosError('invalid_bridge','Expected an array of target metadata objects.');
+    return list;
   }
   async dispatch(action,args,{owner,signal}){
     signal.throwIfAborted();
+    if(action==='preflight'){
+      if(!PREFLIGHT_WORKFLOWS.includes(args.workflow))throw new IosError('invalid_arguments','Select device-discovery or existing-bridge for local preflight.');
+      let runtime='not_applicable',runtimeCode=null;
+      if(args.workflow==='device-discovery'){
+        runtime='unknown';
+        // Do not provision, discover devices, or contact a bridge in local preflight.
+        if(this.environment?.status().busy!==true){
+          if(!this.environment)runtimeCode='python_missing';
+          else try{await this.environment.requirePython({signal});runtime='passed';}
+          catch(error){signal.throwIfAborted();if(error?.code==='cancelled')throw error;runtime='failed';runtimeCode=error?.code||'local_check_failed';}
+        }
+      }
+      signal.throwIfAborted();
+      return {ok:true,preflight:preflightReport({workflow:args.workflow,runtime,runtimeCode})};
+    }
     if(action==='devices'){
-      const interpreter=this.environment?await this.environment.requirePython():pythonPath(this.config);
+      const interpreter=this.environment?await this.environment.requirePython({signal}):pythonPath(this.config);
       const raw=await this.run(interpreter,['-I','-m','pymobiledevice3','--no-color','usbmux','list'],{signal,timeoutMs:this.config.timeoutMs});
-      const list=JSON.parse(raw);if(!Array.isArray(list))throw new IosError('invalid_device_list','Expected usbmux device list.');
-      return {ok:true,devices:list.map(d=>({udid:d.Identifier||d.UniqueDeviceID||null,name:d.DeviceName||null,version:d.ProductVersion||null,connectionType:d.ConnectionType||null}))};
+      let list;try{list=JSON.parse(raw);}catch{throw new IosError('invalid_device_list','Expected a valid JSON usbmux device list.');}if(!Array.isArray(list))throw new IosError('invalid_device_list','Expected usbmux device list.');
+      return {ok:true,devices:list.map(d=>({udid:d.Identifier||d.UniqueDeviceID||null,name:d.DeviceName||null,version:d.ProductVersion||null,connectionType:d.ConnectionType||null})),preflight:preflightReport({stage:'devices',workflow:'device-discovery',runtime:'passed',deviceCount:list.length})};
     }
     if(action==='connect'){
       assertSupported(args.platform,args.appType); // Hard refusal before HTTP, device I/O or lease creation.
@@ -42,11 +65,11 @@ export class IosControl {
       const endpoint=endpointUrl(args.endpoint||this.config.endpoint);
       const version=await this.fetchJson(endpoint,'/json/version',{signal,timeoutMs:this.config.timeoutMs});
       if(version['User-Agent']!=='pymobiledevice3')throw new IosError('wrong_bridge','Existing endpoint is not a pymobiledevice3 bridge.');
-      const list=await this.discoverTargets(endpoint,{signal,timeoutMs:this.config.timeoutMs});
+      const list=await this.targetList(endpoint,signal);
       signal.throwIfAborted();
       const id=randomUUID();const c={id,owner,endpoint,udid:args.udid,platform:args.platform,appType:args.appType,binding:'operator-attested',connectedAt:new Date().toISOString()};
       this.connections.set(id,c);
-      return {ok:true,connectionId:id,endpoint,deviceBinding:'operator-attested-not-automatically-proven',appTypeValidation:'operator-declared-not-automatically-proven',targetCount:list.length,capabilities:CAPABILITIES,buildIdentity:'unverified',warning:'Coordinate target ownership before attaching: this bridge can take over another debugger connection. No app type can be inferred solely from presence of a WebView.'};
+      return {ok:true,connectionId:id,endpoint,deviceBinding:'operator-attested-not-automatically-proven',appTypeValidation:'operator-declared-not-automatically-proven',targetCount:list.length,preflight:preflightReport({stage:'connect',workflow:'existing-bridge',pageCount:list.filter(t=>t.type==='page').length}),capabilities:CAPABILITIES,buildIdentity:'unverified',warning:'Coordinate target ownership before attaching: this bridge can take over another debugger connection. No app type can be inferred solely from presence of a WebView.'};
     }
     const c=this.connection(args.connectionId,owner);
     if(this.connectionBusy.has(c.id))throw new IosError('connection_busy','Another operation owns this connection; wait for it to settle.');
@@ -56,13 +79,13 @@ export class IosControl {
       const l=this.leased.get(c.id);if(l){await this.leases.release(c.udid,owner,l.token);this.leased.delete(c.id);}this.connections.delete(c.id);return {ok:true,disconnected:true,bridgeStopped:false};
     }
     if(action==='targets'){
-      const list=await this.discoverTargets(c.endpoint,{signal,timeoutMs:this.config.timeoutMs});
-      return {ok:true,connectionId:c.id,targets:list.map(t=>({id:t.id||null,title:t.title||null,type:t.type||null,url:t.url||null})),warning:'Exact id only. No target list ordering or numeric suffix proves foreground visibility.'};
+      const list=await this.targetList(c.endpoint,signal);
+      return {ok:true,connectionId:c.id,targets:list.map(t=>({id:t.id||null,title:t.title||null,type:t.type||null,url:t.url||null})),preflight:preflightReport({stage:'targets',workflow:'existing-bridge',pageCount:list.filter(t=>t.type==='page').length}),warning:'Exact id only. No target list ordering or numeric suffix proves foreground visibility.'};
     }
     if(action==='bind'){
       assertSupported(args.platform,args.appType);
       if(args.verifiedTargetId!==args.targetId||typeof args.targetId!=='string'||typeof args.appIdentity!=='string'||!args.appIdentity.trim()||args.appIdentity.length>256)throw new IosError('target_binding_unverified','Explicit operator confirmation of targetId, supported app type and appIdentity is required. Never infer app type from an inspectable page.');
-      const list=await this.discoverTargets(c.endpoint,{signal,timeoutMs:this.config.timeoutMs});const t=exactPage(list,args.targetId,c.endpoint);signal.throwIfAborted();
+      const list=await this.targetList(c.endpoint,signal);const t=exactPage(list,args.targetId,c.endpoint);signal.throwIfAborted();
       c.targetBinding={id:t.id,title:t.title||null,url:t.url||null,socket:t.webSocketDebuggerUrl,appIdentity:args.appIdentity.trim(),platform:args.platform,appType:args.appType};
       return {ok:true,targetBinding:{...c.targetBinding,socket:null},validation:'operator-attested-not-automatically-proven',warning:'Only this exact target is eligible for this plugin. New or changed targets require a new supported-app confirmation. This plugin rejects native/Flutter/Android/unknown targets; other tools are not assessed.'};
     }
@@ -79,7 +102,7 @@ export class IosControl {
     if(!this.leased.has(c.id))throw new IosError('lease_required','Acquire a lease for this exact connection first.');
     if(this.leased.get(c.id).token!==args.leaseToken)throw new IosError('lease_not_owned','Lease token was not issued to this connection.');
     return await this.leases.withCommand(c.udid,owner,args.leaseToken,async()=>{
-      const list=await this.discoverTargets(c.endpoint,{signal,timeoutMs:this.config.timeoutMs});
+      const list=await this.targetList(c.endpoint,signal);
       const t=exactPage(list,args.targetId,c.endpoint);
       const bound=c.targetBinding;
       if(!bound||bound.id!==t.id)throw new IosError('target_not_bound','This exact target has not been explicitly confirmed as belonging to a supported iOS WebView/hybrid app. Bind it before reading or input.');

@@ -25,7 +25,7 @@ export async function fetchJson(endpoint,pathname,{signal,timeoutMs=15000}={}) {
   if(!r.ok)throw new IosError('bridge_http_error','Bridge returned HTTP '+r.status);
   const reader=r.body.getReader();const chunks=[];let size=0;
   try{for(;;){const item=await reader.read();if(item.done)break;size+=item.value.byteLength;if(size>2*1024*1024){await reader.cancel();throw new IosError('result_too_large','Bridge discovery exceeded 2MiB.');}chunks.push(item.value);}}finally{reader.releaseLock();}
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new IosError('invalid_bridge','Bridge returned invalid JSON.');}
 }
 export function assertLosslessJson(value,seen=new Set()){
   if(value===null||typeof value==='string'||typeof value==='boolean')return;
